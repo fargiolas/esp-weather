@@ -1,0 +1,4 @@
+[submodule "components/bosch-bme280"]
+	path = components/bosch-bme280
+	url = git@github.com:fargiolas/BME280_driver.git
+	branch = rtos
