@@ -1,4 +1,4 @@
-#
+CFLAGS += -DBME280_64BIT_ENABLE
 # Main component makefile.
 #
 # This Makefile can be left empty. By default, it will take the sources in the 
