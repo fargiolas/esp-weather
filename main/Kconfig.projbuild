@@ -31,4 +31,10 @@ menu "MQTT Configuration"
         bool
         default y if BROKER_URL = "FROM_STDIN"
 
+    config MQTT_TOPIC
+        string "MQTT Topic"
+	default "/some/topic"
+	help
+            Topic for env sensor data
+
 endmenu
