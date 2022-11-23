@@ -14,4 +14,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+
+#ifndef __USER_WIFI_H__
+#define __USER_WIFI_H__
+
 void wifi_init_sta(void);
+
+#endif /* __USER_WIFI_H__ */

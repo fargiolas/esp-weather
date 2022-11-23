@@ -14,6 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"

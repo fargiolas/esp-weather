@@ -14,6 +14,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+
+#ifndef __USER_BME280_H__
+#define __USER_BME280_H__
+
 #include "esp_system.h"
 #include "bme280.h"
 
@@ -24,4 +28,5 @@ esp_err_t i2c_master_cleanup(void);
 esp_err_t bme280_setup(void);
 esp_err_t bme280_read_forced(double *T, double *RH, double *P);
 
+#endif /* __USER_BME280_H__ */
 
