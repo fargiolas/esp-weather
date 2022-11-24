@@ -26,6 +26,7 @@ esp_err_t i2c_master_init(void);
 esp_err_t i2c_master_cleanup(void);
 esp_err_t bme280_setup(struct bme280_dev *dev, uint8_t *addr);
 esp_err_t bme280_read_forced(struct bme280_dev *dev, double *T, double *RH, double *P);
+uint32_t  bme280_get_serial(struct bme280_dev *dev);
 
 #endif /* __USER_BME280_H__ */
 

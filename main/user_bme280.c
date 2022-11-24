@@ -174,3 +174,24 @@ esp_err_t bme280_read_forced(struct bme280_dev *dev, double *T, double *RH, doub
     return ESP_OK;
 }
 
+/* BME280 and 680 apparently have some undocumented unique registers
+ * that can be used as a serial number. It can be used to track device
+ * life cycle for periodic maintainance (most of these devices get
+ * stuck to 100% humidity if exposed to high relative humidity for
+ * long-ish times and need a trip of 2 hours in an oven at 120 °C to
+ * recover them). See [1] for the "official" code for serial number
+ * query
+ *
+ * 1. https://community.bosch-sensortec.com/t5/MEMS-sensors-forum/Unique-IDs-in-Bosch-Sensors/td-p/6012 */
+uint32_t bme280_get_serial(struct bme280_dev *dev)
+{
+    uint8_t uid_regs[4];
+    uint32_t unique_id;
+
+    bme280_get_regs(0x83, uid_regs, 4, dev);
+
+    unique_id = ((((uint32_t) uid_regs[3] + ((uint32_t) uid_regs[2] << 8)) & 0x7fff) << 16) +
+        (((uint32_t) uid_regs[1]) << 8 ) + (uint32_t) uid_regs[0];
+
+    return unique_id;
+}

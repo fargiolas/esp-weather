@@ -29,6 +29,7 @@ esp_mqtt_client_handle_t client;
 
 struct bme280_dev bme;
 static uint8_t bme280_i2c_addr = BME280_I2C_ADDR_PRIM;
+static uint32_t bme_serial;
 
 static void publish_sensor_data(void *params)
 {
@@ -49,7 +50,7 @@ static void publish_sensor_data(void *params)
         sprintf(RH_buf, "%d.%02u", (int32_t) RH, (uint32_t) (RH * 100) % 100);
         sprintf(P_buf, "%d.%02u", (int32_t) P, (uint32_t) (P * 100) % 100);
 
-        ESP_LOGI(TAG, "%s C, %s%%, %s Pa", T_buf, RH_buf, P_buf);
+        ESP_LOGI(TAG, "bme280 (0x%X): %s C, %s%%, %s Pa", bme_serial, T_buf, RH_buf, P_buf);
 
         memset(topic, 0, sizeof(topic));
         sprintf(topic, "%s/temperature", CONFIG_MQTT_TOPIC);
@@ -112,6 +113,7 @@ static void sensors_init(void)
 {
     i2c_master_init();
     ESP_ERROR_CHECK(bme280_setup(&bme, &bme280_i2c_addr));
+    bme_serial = bme280_get_serial(&bme);
     i2c_master_cleanup();
 }
 
