@@ -27,7 +27,6 @@
 #define I2C_TX_BUF_DISABLE   0                /*!< I2C master do not need buffer */
 #define I2C_RX_BUF_DISABLE   0                /*!< I2C master do not need buffer */
 
-#define BME280_ADDR                         0x76
 #define WRITE_BIT                           I2C_MASTER_WRITE /*!< I2C master write */
 #define READ_BIT                            I2C_MASTER_READ  /*!< I2C master read */
 #define ACK_CHECK_EN                        0x1              /*!< I2C master will check ack from slave*/
@@ -36,7 +35,6 @@
 #define NACK_VAL                            0x1              /*!< I2C nack value */
 #define LAST_NACK_VAL                       0x2              /*!< I2C last_nack value */
 
-static uint8_t bme280_i2c_addr;
 static const char *TAG = "bme280";
 
 esp_err_t i2c_master_init()
@@ -109,37 +107,36 @@ void user_delay_us(uint32_t period, void *intf_ptr)
     ets_delay_us(period);
 }
 
-esp_err_t bme280_setup(void)
+esp_err_t bme280_setup(struct bme280_dev *dev, uint8_t *addr)
 {
     int8_t rslt = BME280_OK;
 
-    bme280_i2c_addr = BME280_I2C_ADDR_PRIM;
-    bme.intf = BME280_I2C_INTF;
-    bme.intf_ptr = &bme280_i2c_addr;
-    bme.read = user_i2c_read;
-    bme.write = user_i2c_write;
-    bme.delay_us = user_delay_us;
+    dev->intf = BME280_I2C_INTF;
+    dev->intf_ptr = addr;
+    dev->read = user_i2c_read;
+    dev->write = user_i2c_write;
+    dev->delay_us = user_delay_us;
 
-    if (bme280_init(&bme) != BME280_OK) {
+    if (bme280_init(dev) != BME280_OK) {
         ESP_LOGE(TAG, "device absent");
         return ESP_FAIL;
     }
 
-    bme.settings.osr_h = BME280_OVERSAMPLING_1X;
-    bme.settings.osr_p = BME280_OVERSAMPLING_1X;
-    bme.settings.osr_t = BME280_OVERSAMPLING_1X;
-    bme.settings.filter = BME280_FILTER_COEFF_OFF;
+    dev->settings.osr_h = BME280_OVERSAMPLING_1X;
+    dev->settings.osr_p = BME280_OVERSAMPLING_1X;
+    dev->settings.osr_t = BME280_OVERSAMPLING_1X;
+    dev->settings.filter = BME280_FILTER_COEFF_OFF;
 
     int settings_sel = BME280_OSR_PRESS_SEL | BME280_OSR_TEMP_SEL |
         BME280_OSR_HUM_SEL | BME280_FILTER_SEL;
 
-    rslt = bme280_set_sensor_settings(settings_sel, &bme);
+    rslt = bme280_set_sensor_settings(settings_sel, dev);
     if (rslt != BME280_OK) {
         ESP_LOGE(TAG, "set sensor settings failed, (code %d).", rslt);
         return ESP_FAIL;
     }
 
-    rslt = bme280_set_sensor_mode(BME280_FORCED_MODE, &bme);
+    rslt = bme280_set_sensor_mode(BME280_FORCED_MODE, dev);
     if (rslt != BME280_OK){
         ESP_LOGE(TAG, "set forced mode failed, (code %d).", rslt);
         return ESP_FAIL;
@@ -148,23 +145,23 @@ esp_err_t bme280_setup(void)
     return ESP_OK;
 }
 
-esp_err_t bme280_read_forced(double *T, double *RH, double *P)
+esp_err_t bme280_read_forced(struct bme280_dev *dev, double *T, double *RH, double *P)
 {
     uint32_t req_delay;
     int8_t rslt = BME280_OK;
 
-    rslt = bme280_set_sensor_mode(BME280_FORCED_MODE, &bme);
+    rslt = bme280_set_sensor_mode(BME280_FORCED_MODE, dev);
     if (rslt != BME280_OK){
         ESP_LOGE(TAG, "bme: set forced mode failed, (code %d).\n", rslt);
         return ESP_FAIL;
     }
 
-    req_delay = bme280_cal_meas_delay(&bme.settings);
-    bme.delay_us(req_delay, bme.intf_ptr);
+    req_delay = bme280_cal_meas_delay(&dev->settings);
+    dev->delay_us(req_delay, dev->intf_ptr);
 
     struct bme280_data comp_data;
 
-    rslt = bme280_get_sensor_data(BME280_ALL, &comp_data, &bme);
+    rslt = bme280_get_sensor_data(BME280_ALL, &comp_data, dev);
     if (rslt != BME280_OK) {
         ESP_LOGE(TAG, "Failed to get sensor data (code %d).\n", rslt);
         return ESP_FAIL;
@@ -176,3 +173,4 @@ esp_err_t bme280_read_forced(double *T, double *RH, double *P)
 
     return ESP_OK;
 }
+

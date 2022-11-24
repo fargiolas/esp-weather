@@ -15,6 +15,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "bme280_defs.h"
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -26,10 +27,12 @@ static const char *TAG = "main";
 
 esp_mqtt_client_handle_t client;
 
+struct bme280_dev bme;
+static uint8_t bme280_i2c_addr = BME280_I2C_ADDR_PRIM;
+
 static void publish_sensor_data(void *params)
 {
     i2c_master_init();
-    bme280_setup();
 
     while (1) {
         double T, RH, P;
@@ -38,7 +41,7 @@ static void publish_sensor_data(void *params)
         char P_buf[64];
         char topic[64];
 
-        if (bme280_read_forced(&T, &RH, &P) != ESP_OK) {
+        if (bme280_read_forced(&bme, &T, &RH, &P) != ESP_OK) {
             continue;
         }
 
@@ -105,6 +108,13 @@ static void mqtt_app_start(void)
     esp_mqtt_client_start(client);
 }
 
+static void sensors_init(void)
+{
+    i2c_master_init();
+    ESP_ERROR_CHECK(bme280_setup(&bme, &bme280_i2c_addr));
+    i2c_master_cleanup();
+}
+
 void app_main()
 {
     ESP_ERROR_CHECK(nvs_flash_init());
@@ -112,5 +122,6 @@ void app_main()
     ESP_LOGI(TAG, "Initializing WIFI in Station Mode");
     wifi_init_sta();
     ESP_LOGI(TAG, "Initializing MQTT Client");
+    sensors_init();
     mqtt_app_start();
 }
