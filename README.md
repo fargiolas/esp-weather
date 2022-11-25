@@ -12,9 +12,11 @@ just take an ESP8266 dev board and connect bme280 SCL to GPIO2 and SDA to GPIO0
 ## building
 
 1. download ESP8266_RTOS_SDK, set the proper env variables
-2. `make menuconfig`
-3. `make flash`
-4. `make monitor`
+2. clone this repo
+3. `git submodule init` and `git submodule update` to get bosch driver
+4. `make menuconfig`5
+5. `make flash`
+6. `make monitor`
 
 serial port, wifi ssid, password and mqtt broker can be configured in `make menuconfig`
 
