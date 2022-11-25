@@ -7,14 +7,16 @@ Nothing too fancy, just needed a few of these to monitor humidity around the hou
 
 ## hardware
 
-just take an ESP8266 dev board and connect bme280 SCL to GPIO2 and SDA to GPIO0
+Just take a ESP8266 dev board and connect bme280 3V3, GND, SCL and SDA to their pins in the board.
+Default i2c configuration assumes GPIO0 for SDA and GPIO2 for SCL but you can configure them in `make menuconfig`. 
+BME280 default address is also configurable (defaults to `0x76`).
 
 ## building
 
 1. download ESP8266_RTOS_SDK, set the proper env variables
 2. clone this repo
 3. `git submodule init` and `git submodule update` to get bosch driver
-4. `make menuconfig`5
+4. `make menuconfig`
 5. `make flash`
 6. `make monitor`
 

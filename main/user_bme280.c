@@ -21,11 +21,11 @@
 #include "bme280.h"
 #include "user_bme280.h"
 
-#define I2C_SCL_IO           2                /*!< gpio number for I2C master clock */
-#define I2C_SDA_IO           0                /*!< gpio number for I2C master data  */
-#define I2C_NUM              I2C_NUM_0        /*!< I2C port number for master dev */
-#define I2C_TX_BUF_DISABLE   0                /*!< I2C master do not need buffer */
-#define I2C_RX_BUF_DISABLE   0                /*!< I2C master do not need buffer */
+#define I2C_SCL_IO           CONFIG_I2C_GPIO_SCL  /*!< gpio number for I2C master clock */
+#define I2C_SDA_IO           CONFIG_I2C_GPIO_SDA  /*!< gpio number for I2C master data  */
+#define I2C_NUM              I2C_NUM_0            /*!< I2C port number for master dev */
+#define I2C_TX_BUF_DISABLE   0                    /*!< I2C master do not need buffer */
+#define I2C_RX_BUF_DISABLE   0                    /*!< I2C master do not need buffer */
 
 #define WRITE_BIT                           I2C_MASTER_WRITE /*!< I2C master write */
 #define READ_BIT                            I2C_MASTER_READ  /*!< I2C master read */

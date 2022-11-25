@@ -20,6 +20,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "mqtt_client.h"
+#include "sdkconfig.h"
 #include "user_wifi.h"
 #include "user_bme280.h"
 
@@ -28,7 +29,7 @@ static const char *TAG = "main";
 esp_mqtt_client_handle_t client;
 
 struct bme280_dev bme;
-static uint8_t bme280_i2c_addr = BME280_I2C_ADDR_PRIM;
+static uint8_t bme280_i2c_addr = CONFIG_I2C_BME280_ADDRESS;
 static uint32_t bme_serial;
 
 static void publish_sensor_data(void *params)

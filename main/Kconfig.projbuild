@@ -1,3 +1,24 @@
+menu "I2C Configuration"
+    config I2C_GPIO_SDA
+        int "I2C SDA GPIO Pin"
+        default 0
+        help
+           GPIO Pin to configure as I2C SDA
+
+    config I2C_GPIO_SCL
+        int "I2C SCL GPIO Pin"
+        default 2
+        help
+           GPIO Pin to configure as I2C SCL
+
+    config I2C_BME280_ADDRESS
+        hex "I2C ADDRESS FOR BME280"
+        range 0x76 0x77
+        default 0x76
+        help
+           I2C Address for BME280 Sensor
+endmenu
+
 menu "Wifi Configuration"
 
     config ESP_WIFI_SSID
@@ -26,10 +47,6 @@ menu "MQTT Configuration"
         default "mqtt://mqtt.eclipse.org"
         help
             URL of the broker to connect to
-
-    config BROKER_URL_FROM_STDIN
-        bool
-        default y if BROKER_URL = "FROM_STDIN"
 
     config MQTT_TOPIC
         string "MQTT Topic"
