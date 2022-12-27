@@ -31,6 +31,7 @@ esp_mqtt_client_handle_t client;
 struct bme280_dev bme;
 static uint8_t bme280_i2c_addr = CONFIG_I2C_BME280_ADDRESS;
 static uint32_t bme_serial;
+static uint32_t sampling_delay = CONFIG_SAMPLING_DELAY;
 
 static void publish_sensor_data(void *params)
 {
@@ -63,7 +64,7 @@ static void publish_sensor_data(void *params)
         sprintf(topic, "%s/pressure", CONFIG_MQTT_TOPIC);
         esp_mqtt_client_publish(client, topic, P_buf, 0, 1, 0);
 
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        vTaskDelay(sampling_delay / portTICK_RATE_MS);
     }
 
     i2c_master_cleanup();

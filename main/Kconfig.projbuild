@@ -55,3 +55,13 @@ menu "MQTT Configuration"
             Topic for env sensor data
 
 endmenu
+
+menu "DAQ Configuration"
+
+    config SAMPLING_DELAY
+	int "Sampling delay"
+        default 5000
+        help
+            Time in milliseconds betwean each measurement
+
+endmenu 
