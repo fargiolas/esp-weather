@@ -24,6 +24,7 @@
 #include "esp_netif.h"
 #include "esp_event.h"
 #include "esp_wifi.h"
+#include "esp_sleep.h"
 
 static const char *TAG = "wifi_client";
 
@@ -115,6 +116,9 @@ void wifi_init_sta(void)
     } else if (bits & WIFI_FAIL_BIT) {
         ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
                  WIFI_SSID, WIFI_PASS);
+        ESP_LOGI(TAG, "Stopping wifi and entering deep sleep for 60s");
+        esp_wifi_stop();
+        esp_deep_sleep(60 * 1000 * 1000);
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
