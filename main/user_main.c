@@ -15,6 +15,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "FreeRTOSConfig.h"
 #include "bme280_defs.h"
 #include "esp_log.h"
 #include "nvs.h"
@@ -32,50 +33,58 @@ struct bme280_dev bme;
 static uint8_t bme280_i2c_addr = CONFIG_I2C_BME280_ADDRESS;
 static uint32_t bme_serial;
 static uint32_t sampling_delay = CONFIG_SAMPLING_DELAY;
+static double humidity_correction = CONFIG_HUMIDITY_CORRECTION;
+static TaskHandle_t publish_task_handle = NULL;
 
 static void publish_sensor_data(void *params)
 {
-    i2c_master_init();
+    double T, RH, P;
+    char payload[16];
+    char topic[64];
 
     while (1) {
-        double T, RH, P;
-        char T_buf[64];
-        char RH_buf[64];
-        char P_buf[64];
-        char topic[64];
+        if (bme280_read_forced(&bme, &T, &RH, &P) == ESP_OK) {
+            RH += humidity_correction;
 
-        if (bme280_read_forced(&bme, &T, &RH, &P) != ESP_OK) {
-            continue;
+            memset(topic, 0, sizeof(topic));
+            memset(payload, 0, sizeof(payload));
+            sprintf(topic, "%s/temperature", CONFIG_MQTT_TOPIC);
+            sprintf(payload, "%d.%02u", (int32_t) T, (uint32_t) (T * 100) % 100);
+            esp_mqtt_client_publish(client, topic, payload, 0, 1, 0);
+            ESP_LOGI(TAG, "bme280 (0x%X): temperature: %s C", bme_serial, payload);
+
+            memset(topic, 0, sizeof(topic));
+            memset(payload, 0, sizeof(payload));
+            sprintf(topic, "%s/humidity", CONFIG_MQTT_TOPIC);
+            sprintf(payload, "%d.%02u", (int32_t) RH, (uint32_t) (RH * 100) % 100);
+            esp_mqtt_client_publish(client, topic, payload, 0, 1, 0);
+            ESP_LOGI(TAG, "bme280 (0x%X): humidity: %s%%", bme_serial, payload);
+
+            memset(topic, 0, sizeof(topic));
+            memset(payload, 0, sizeof(payload));
+            sprintf(topic, "%s/pressure", CONFIG_MQTT_TOPIC);
+            sprintf(payload, "%d.%02u", (int32_t) P, (uint32_t) (P * 100) % 100);
+            esp_mqtt_client_publish(client, topic, payload, 0, 1, 0);
+            ESP_LOGI(TAG, "bme280 (0x%X): pressure: %s Pa", bme_serial, payload);
+        } else {
+            /* should we trigger a reset here or wait for the problem to solve itself? */
+            ESP_LOGE(TAG, "Cannot read from BME280");
         }
-
-        sprintf(T_buf, "%d.%02u", (int32_t) T, (uint32_t) (T * 100) % 100);
-        sprintf(RH_buf, "%d.%02u", (int32_t) RH, (uint32_t) (RH * 100) % 100);
-        sprintf(P_buf, "%d.%02u", (int32_t) P, (uint32_t) (P * 100) % 100);
-
-        ESP_LOGI(TAG, "bme280 (0x%X): %s C, %s%%, %s Pa", bme_serial, T_buf, RH_buf, P_buf);
-
-        memset(topic, 0, sizeof(topic));
-        sprintf(topic, "%s/temperature", CONFIG_MQTT_TOPIC);
-        esp_mqtt_client_publish(client, topic, T_buf, 0, 1, 0);
-        memset(topic, 0, sizeof(topic));
-        sprintf(topic, "%s/humidity", CONFIG_MQTT_TOPIC);
-        esp_mqtt_client_publish(client, topic, RH_buf, 0, 1, 0);
-        memset(topic, 0, sizeof(topic));
-        sprintf(topic, "%s/pressure", CONFIG_MQTT_TOPIC);
-        esp_mqtt_client_publish(client, topic, P_buf, 0, 1, 0);
 
         vTaskDelay(sampling_delay / portTICK_RATE_MS);
     }
-
-    i2c_master_cleanup();
 }
 
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
+            if (publish_task_handle == NULL) {
+                xTaskCreate(publish_sensor_data, "publish_sensor_data",
+                            2048, NULL,
+                            tskIDLE_PRIORITY+1, &publish_task_handle);
+            }
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-            xTaskCreate(publish_sensor_data, "publish_sensor_data", 2048, NULL, 10, NULL);
             break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -116,7 +125,6 @@ static void sensors_init(void)
     i2c_master_init();
     ESP_ERROR_CHECK(bme280_setup(&bme, &bme280_i2c_addr));
     bme_serial = bme280_get_serial(&bme);
-    i2c_master_cleanup();
 }
 
 void app_main()

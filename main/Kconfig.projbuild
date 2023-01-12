@@ -64,4 +64,10 @@ menu "DAQ Configuration"
         help
             Time in milliseconds betwean each measurement
 
+    config HUMIDITY_CORRECTION
+	int "Humidity correction"
+        default 0
+        help
+	    Offset to correct BME280 Humidity readings
+
 endmenu 
