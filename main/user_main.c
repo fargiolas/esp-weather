@@ -21,6 +21,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "mqtt_client.h"
+#include "projdefs.h"
 #include "sdkconfig.h"
 #include "user_wifi.h"
 #include "user_bme280.h"
@@ -71,7 +72,7 @@ static void publish_sensor_data(void *params)
             ESP_LOGE(TAG, "Cannot read from BME280");
         }
 
-        vTaskDelay(sampling_delay / portTICK_RATE_MS);
+        vTaskDelay(pdMS_TO_TICKS(sampling_delay));
     }
 }
 
