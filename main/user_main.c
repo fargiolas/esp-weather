@@ -98,8 +98,11 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
             break;
+        case MQTT_EVENT_BEFORE_CONNECT:
+            ESP_LOGI(TAG, "MQTT_EVENT_BEFORE_CONNECT");
+            break;
         default:
-            ESP_LOGI(TAG, "Other event id:%d", event->event_id);
+            ESP_LOGE(TAG, "UNKWOWN MQTT ERROR");
             break;
     }
     return ESP_OK;
@@ -134,7 +137,8 @@ void app_main()
 
     ESP_LOGI(TAG, "Initializing WIFI in Station Mode");
     wifi_init_sta();
-    ESP_LOGI(TAG, "Initializing MQTT Client");
+    ESP_LOGI(TAG, "I2C and sensors setup");
     sensors_init();
+    ESP_LOGI(TAG, "Initializing MQTT Client");
     mqtt_app_start();
 }
