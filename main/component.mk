@@ -1,4 +1,6 @@
 CFLAGS += -DBME280_64BIT_ENABLE
+COMPONENT_EMBED_TXTFILES :=  ${PROJECT_PATH}/server_certs/ca_cert.pem
+
 # Main component makefile.
 #
 # This Makefile can be left empty. By default, it will take the sources in the 
