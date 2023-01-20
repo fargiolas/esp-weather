@@ -140,6 +140,9 @@ static void publish_sensor_data(void *params)
         if (bme280_read_forced(&bme, &T, &RH, &P) == ESP_OK) {
             RH += humidity_correction;
 
+            ESP_LOGI(TAG, "T: %d.%02d °C, RH: %d.%02d%%, P: %d.%02d hPa",
+                     INT(T), DEC(T), INT(RH), DEC(RH), INT(P), DEC(P));
+
             mqtt_log(CONFIG_MQTT_TOPIC "/temperature", "%d.%02d", INT(T), DEC(T));
             mqtt_log(CONFIG_MQTT_TOPIC "/humidity", "%d.%02d", INT(RH), DEC(RH));
             mqtt_log(CONFIG_MQTT_TOPIC "/pressure", "%d.%02d", INT(P), DEC(P));
@@ -224,7 +227,6 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
                         ESP_LOGW(TAG, "Error opening non-volatile storage: %s", esp_err_to_name(err));
                         break;
                 }
-
 
                 if (err == ESP_OK) {
                     ESP_LOGI(TAG, "Saving offset to non-volating storage");
