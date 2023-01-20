@@ -17,6 +17,7 @@
 
 #include "FreeRTOSConfig.h"
 #include "bme280_defs.h"
+#include "esp_err.h"
 #include "esp_system.h"
 #include "esp_app_format.h"
 #include "esp_log.h"
@@ -31,10 +32,10 @@
 #include "sdkconfig.h"
 #include "user_wifi.h"
 #include "user_bme280.h"
-#include <limits.h>
 #include "math.h"
 
 #define OTA_TOPIC CONFIG_MQTT_TOPIC "/ota"
+#define CONF_TOPIC CONFIG_MQTT_TOPIC "/config"
 
 #define STATUS_LED 16
 
@@ -153,18 +154,15 @@ static void publish_sensor_data(void *params)
 
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
-    char payload[128];
-    char topic[64];
-
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
 
             /* log app description to mqtt */
             const esp_app_desc_t *app = esp_ota_get_app_description();
-            sprintf(topic, "%s/info", CONFIG_MQTT_TOPIC);
-            sprintf(payload, "%s v%s -- %s %s", app->project_name, app->version, app->date, app->time);
-            esp_mqtt_client_publish(client, CONFIG_MQTT_TOPIC, payload, 0, 1, 0);
+            mqtt_log(CONFIG_MQTT_TOPIC "/info", "%s v%s -- %s %s", app->project_name, app->version, app->date, app->time);
+            mqtt_log(CONFIG_MQTT_TOPIC "/info", "bme280: 0x%X", bme_serial);
+            mqtt_log(CONFIG_MQTT_TOPIC "/info", "humidity_correction: %d.%02d", INT(humidity_correction), DEC(humidity_correction));
 
             if (publish_task_handle == NULL) {
                 xTaskCreate(publish_sensor_data, "publish_sensor_data",
@@ -178,6 +176,8 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 
             ESP_LOGI(TAG, "Subscribing to %s for ota updates", OTA_TOPIC);
             esp_mqtt_client_subscribe(client, OTA_TOPIC, 1);
+            ESP_LOGI(TAG, "Subscribing to %s for ota config", CONF_TOPIC);
+            esp_mqtt_client_subscribe(client, CONF_TOPIC, 1);
             break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -192,15 +192,50 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_DATA:
             /* Notify ota task when a new url is received on the OTA topic */
             if (!strncmp(event->topic, OTA_TOPIC, strlen(OTA_TOPIC))) {
-                char topic_buf[64];
+                char topic_buf[64+1];
                 int topic_len = event->topic_len < 64 ? event->topic_len : 64;
                 int url_len = event->data_len < sizeof(ota_url) ? event->data_len : sizeof(ota_url);
 
                 strlcpy(topic_buf, event->topic, topic_len+1);
                 strlcpy(ota_url, event->data, url_len+1);
+                topic_buf[topic_len+1] = '\0';
+                ota_url[url_len+1] = '\0';
                 ESP_LOGI(TAG, "DATA: %s: %s", topic_buf, ota_url);
 
                 xTaskNotify(ota_task_handle, 0, eNoAction);
+            } else if (!strncmp(event->topic, CONF_TOPIC, strlen(CONF_TOPIC))) {
+                char payload[event->data_len+1];
+                char namespace[64];
+                int32_t offset;
+                nvs_handle_t nvs_handle;
+                esp_err_t err;
+
+                strlcpy(payload, event->data, event->data_len+1);
+                payload[event->data_len] = '\0';
+
+                sscanf(payload, "%s %d", namespace, &offset);
+                ESP_LOGI(TAG, "%s -> %d", namespace, offset);
+
+                err = nvs_open("config", NVS_READWRITE, &nvs_handle);
+                switch (err) {
+                    case ESP_OK:
+                        break;
+                    default:
+                        ESP_LOGW(TAG, "Error opening non-volatile storage: %s", esp_err_to_name(err));
+                        break;
+                }
+
+
+                if (err == ESP_OK) {
+                    ESP_LOGI(TAG, "Saving offset to non-volating storage");
+                    err = nvs_set_i32(nvs_handle, "humidity_offset", offset);
+                    if (err != ESP_OK) {
+                        ESP_LOGE(TAG, "Error while saving to nvs: %s", esp_err_to_name(err));
+                    } else {
+                        ESP_LOGI(TAG, "Restarting for the correction to have effect");
+                        esp_restart();
+                    }
+                }
             }
             break;
         case MQTT_EVENT_ERROR:
@@ -234,9 +269,37 @@ static void mqtt_app_start(void)
 
 static void sensors_init(void)
 {
+    nvs_handle_t nvs_handle;
+    esp_err_t err;
+    int32_t offset = 0;
+
     i2c_master_init();
     ESP_ERROR_CHECK(bme280_setup(&bme, &bme280_i2c_addr));
     bme_serial = bme280_get_serial(&bme);
+
+    err = nvs_open("config", NVS_READWRITE, &nvs_handle);
+    switch (err) {
+        case ESP_OK:
+            break;
+        default:
+            ESP_LOGW(TAG, "Error opening non-volatile storage: %s", esp_err_to_name(err));
+            return;
+    }
+
+    err = nvs_get_i32(nvs_handle, "humidity_offset", &offset);
+
+    switch (err) {
+        case ESP_OK:
+            humidity_correction = (double) (offset) / 1000.;
+            ESP_LOGI(TAG, "Loading humidity offset from non-volatile storage: %d.%02d",
+                     INT(humidity_correction), DEC(humidity_correction));
+            break;
+        case ESP_ERR_NVS_NOT_FOUND:
+            ESP_LOGW(TAG, "Humidity correction not found in non-volatile storage");
+            break;
+        default:
+            ESP_LOGE(TAG, "Error reading non-volatile storage: %s", esp_err_to_name(err));
+    }
 }
 
 void app_main()
