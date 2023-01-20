@@ -32,10 +32,14 @@
 #include "user_wifi.h"
 #include "user_bme280.h"
 #include <limits.h>
+#include "math.h"
 
 #define OTA_TOPIC CONFIG_MQTT_TOPIC "/ota"
 
 #define STATUS_LED 16
+
+#define DEC(f) (uint32_t)(fabs(fmod(f * 100, 100.)))
+#define INT(f) (int32_t)(f)
 
 static const char *TAG = "main";
 
@@ -52,6 +56,19 @@ char ota_url[2048];
 static TaskHandle_t ota_task_handle = NULL;
 extern const uint8_t server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
 extern const uint8_t server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
+
+static int mqtt_log(const char *topic, const char *fmt, ...)
+{
+    char payload[256];
+    va_list l;
+    va_start(l, fmt);
+    vsprintf(payload, fmt, l);
+    va_end(l);
+
+    esp_mqtt_client_publish(client, topic, payload, 0, 1, 0);
+
+    return 0;
+}
 
 /* super basic http event handler for OTA updates debugging */
 static esp_err_t http_event_handler(esp_http_client_event_t *evt)
@@ -117,33 +134,14 @@ static void ota_task(void *params)
 static void publish_sensor_data(void *params)
 {
     double T, RH, P;
-    char payload[16];
-    char topic[64];
 
     while (1) {
         if (bme280_read_forced(&bme, &T, &RH, &P) == ESP_OK) {
             RH += humidity_correction;
 
-            memset(topic, 0, sizeof(topic));
-            memset(payload, 0, sizeof(payload));
-            sprintf(topic, "%s/temperature", CONFIG_MQTT_TOPIC);
-            sprintf(payload, "%d.%02u", (int32_t) T, (uint32_t) (T * 100) % 100);
-            esp_mqtt_client_publish(client, topic, payload, 0, 1, 0);
-            ESP_LOGI(TAG, "bme280 (0x%X): temperature: %s C", bme_serial, payload);
-
-            memset(topic, 0, sizeof(topic));
-            memset(payload, 0, sizeof(payload));
-            sprintf(topic, "%s/humidity", CONFIG_MQTT_TOPIC);
-            sprintf(payload, "%d.%02u", (int32_t) RH, (uint32_t) (RH * 100) % 100);
-            esp_mqtt_client_publish(client, topic, payload, 0, 1, 0);
-            ESP_LOGI(TAG, "bme280 (0x%X): humidity: %s%%", bme_serial, payload);
-
-            memset(topic, 0, sizeof(topic));
-            memset(payload, 0, sizeof(payload));
-            sprintf(topic, "%s/pressure", CONFIG_MQTT_TOPIC);
-            sprintf(payload, "%d.%02u", (int32_t) P, (uint32_t) (P * 100) % 100);
-            esp_mqtt_client_publish(client, topic, payload, 0, 1, 0);
-            ESP_LOGI(TAG, "bme280 (0x%X): pressure: %s Pa", bme_serial, payload);
+            mqtt_log(CONFIG_MQTT_TOPIC "/temperature", "%d.%02d", INT(T), DEC(T));
+            mqtt_log(CONFIG_MQTT_TOPIC "/humidity", "%d.%02d", INT(RH), DEC(RH));
+            mqtt_log(CONFIG_MQTT_TOPIC "/pressure", "%d.%02d", INT(P), DEC(P));
         } else {
             /* should we trigger a reset here or wait for the problem to solve itself? */
             ESP_LOGE(TAG, "Cannot read from BME280");
