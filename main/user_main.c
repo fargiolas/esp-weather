@@ -229,11 +229,13 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
                 }
 
                 if (err == ESP_OK) {
-                    ESP_LOGI(TAG, "Saving offset to non-volating storage");
+                    ESP_LOGI(TAG, "Saving offset to non-volatile storage");
                     err = nvs_set_i32(nvs_handle, "humidity_offset", offset);
                     if (err != ESP_OK) {
                         ESP_LOGE(TAG, "Error while saving to nvs: %s", esp_err_to_name(err));
                     } else {
+                        ESP_LOGI(TAG, "Committing configuration to non-volatile storage");
+                        nvs_commit(nvs_handle); // should check for errors here 
                         ESP_LOGI(TAG, "Restarting for the correction to have effect");
                         esp_restart();
                     }
