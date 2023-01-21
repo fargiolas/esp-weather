@@ -18,6 +18,7 @@
 #include "FreeRTOSConfig.h"
 #include "bme280_defs.h"
 #include "esp_err.h"
+#include "esp_libc.h"
 #include "esp_system.h"
 #include "esp_app_format.h"
 #include "esp_log.h"
@@ -190,17 +191,14 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_PUBLISHED:
             break;
         case MQTT_EVENT_DATA:
+            ESP_LOGI(TAG, "mqtt message, topic: %.*s, msg: %.*s",
+                     event->topic_len, event->topic,
+                     event->data_len, event->data);
+
             /* Notify ota task when a new url is received on the OTA topic */
             if (!strncmp(event->topic, OTA_TOPIC, strlen(OTA_TOPIC))) {
-                char topic_buf[64+1];
-                int topic_len = event->topic_len < 64 ? event->topic_len : 64;
-                int url_len = event->data_len < sizeof(ota_url) ? event->data_len : sizeof(ota_url);
-
-                strlcpy(topic_buf, event->topic, topic_len+1);
-                strlcpy(ota_url, event->data, url_len+1);
-                topic_buf[topic_len+1] = '\0';
-                ota_url[url_len+1] = '\0';
-                ESP_LOGI(TAG, "DATA: %s: %s", topic_buf, ota_url);
+                memcpy(ota_url, event->data, event->data_len);
+                ota_url[event->data_len+1] = '\0';
 
                 xTaskNotify(ota_task_handle, 0, eNoAction);
             } else if (!strncmp(event->topic, CONF_TOPIC, strlen(CONF_TOPIC))) {
