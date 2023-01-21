@@ -32,15 +32,15 @@
 #include "sdkconfig.h"
 #include "user_wifi.h"
 #include "user_bme280.h"
+#include "user_config.h"
 #include "math.h"
+#include "util.h"
 
 #define OTA_TOPIC CONFIG_MQTT_TOPIC "/ota"
 #define CONF_TOPIC CONFIG_MQTT_TOPIC "/config"
 
 #define STATUS_LED 16
 
-#define DEC(f) (uint32_t)(fabs(fmod(f * 100, 100.)))
-#define INT(f) (int32_t)(f)
 
 static const char *TAG = "main";
 
@@ -207,39 +207,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 
                 xTaskNotify(ota_task_handle, 0, eNoAction);
             } else if (!strncmp(event->topic, CONF_TOPIC, strlen(CONF_TOPIC))) {
-                char payload[event->data_len+1];
-                char namespace[64];
-                int32_t offset;
-                nvs_handle_t nvs_handle;
-                esp_err_t err;
-
-                strlcpy(payload, event->data, event->data_len+1);
-                payload[event->data_len] = '\0';
-
-                sscanf(payload, "%s %d", namespace, &offset);
-                ESP_LOGI(TAG, "%s -> %d", namespace, offset);
-
-                err = nvs_open("config", NVS_READWRITE, &nvs_handle);
-                switch (err) {
-                    case ESP_OK:
-                        break;
-                    default:
-                        ESP_LOGW(TAG, "Error opening non-volatile storage: %s", esp_err_to_name(err));
-                        break;
-                }
-
-                if (err == ESP_OK) {
-                    ESP_LOGI(TAG, "Saving offset to non-volatile storage");
-                    err = nvs_set_i32(nvs_handle, "humidity_offset", offset);
-                    if (err != ESP_OK) {
-                        ESP_LOGE(TAG, "Error while saving to nvs: %s", esp_err_to_name(err));
-                    } else {
-                        ESP_LOGI(TAG, "Committing configuration to non-volatile storage");
-                        nvs_commit(nvs_handle); // should check for errors here 
-                        ESP_LOGI(TAG, "Restarting for the correction to have effect");
-                        esp_restart();
-                    }
-                }
+                config_parse_payload(event->data, event->data_len);
             }
             break;
         case MQTT_EVENT_ERROR:
@@ -262,48 +230,33 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 static void mqtt_app_start(void)
 {
+    char *broker_url;
+    config_read("mqtt_broker_url", &broker_url);
+    ESP_LOGI(TAG, "Setting broker url: %s", broker_url);
+
     esp_mqtt_client_config_t mqtt_cfg = {
-        .uri = CONFIG_BROKER_URL,
+        .uri = broker_url,
     };
 
     client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, client);
     esp_mqtt_client_start(client);
+
+    os_free(broker_url);
 }
 
 static void sensors_init(void)
 {
-    nvs_handle_t nvs_handle;
-    esp_err_t err;
     int32_t offset = 0;
 
     i2c_master_init();
     ESP_ERROR_CHECK(bme280_setup(&bme, &bme280_i2c_addr));
     bme_serial = bme280_get_serial(&bme);
 
-    err = nvs_open("config", NVS_READWRITE, &nvs_handle);
-    switch (err) {
-        case ESP_OK:
-            break;
-        default:
-            ESP_LOGW(TAG, "Error opening non-volatile storage: %s", esp_err_to_name(err));
-            return;
-    }
-
-    err = nvs_get_i32(nvs_handle, "humidity_offset", &offset);
-
-    switch (err) {
-        case ESP_OK:
-            humidity_correction = (double) (offset) / 1000.;
-            ESP_LOGI(TAG, "Loading humidity offset from non-volatile storage: %d.%02d",
-                     INT(humidity_correction), DEC(humidity_correction));
-            break;
-        case ESP_ERR_NVS_NOT_FOUND:
-            ESP_LOGW(TAG, "Humidity correction not found in non-volatile storage");
-            break;
-        default:
-            ESP_LOGE(TAG, "Error reading non-volatile storage: %s", esp_err_to_name(err));
-    }
+    config_read("humidity_offset", &offset);
+    humidity_correction = (double) (offset) / 1000.;
+    ESP_LOGI(TAG, "Setting humidity offset: %d.%02d",
+             INT(humidity_correction), DEC(humidity_correction));
 }
 
 void app_main()

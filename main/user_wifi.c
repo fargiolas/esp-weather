@@ -16,6 +16,7 @@
  */
 
 #include <string.h>
+#include "esp_wifi_types.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -25,6 +26,7 @@
 #include "esp_event.h"
 #include "esp_wifi.h"
 #include "esp_sleep.h"
+#include "user_config.h"
 
 static const char *TAG = "wifi_client";
 
@@ -66,6 +68,9 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 
 void wifi_init_sta(void)
 {
+    char *wifi_ssid;
+    char *wifi_pass;
+
     s_wifi_event_group = xEventGroupCreate();
 
     tcpip_adapter_init();
@@ -78,12 +83,13 @@ void wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
 
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = WIFI_SSID,
-            .password = WIFI_PASS
-        },
-    };
+    config_read("wifi_ssid", &wifi_ssid);
+    config_read("wifi_pass", &wifi_pass);
+
+    wifi_config_t wifi_config = {};
+
+    strncpy((char *) wifi_config.sta.ssid, wifi_ssid, 32);
+    strncpy((char *) wifi_config.sta.password, wifi_pass, 64);
 
     /* force WPA2 mode minimum security */
     if (strlen((char *)wifi_config.sta.password)) {
@@ -110,4 +116,7 @@ void wifi_init_sta(void)
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
     }
+
+    os_free(wifi_ssid);
+    os_free(wifi_pass);
 }
