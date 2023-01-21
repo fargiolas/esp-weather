@@ -39,9 +39,6 @@
 #define OTA_TOPIC CONFIG_MQTT_TOPIC "/ota"
 #define CONF_TOPIC CONFIG_MQTT_TOPIC "/config"
 
-#define STATUS_LED 16
-
-
 static const char *TAG = "main";
 
 esp_mqtt_client_handle_t client;
