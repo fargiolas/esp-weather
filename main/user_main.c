@@ -15,6 +15,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdio.h>
+#include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "bme280_defs.h"
 #include "esp_err.h"
@@ -25,6 +27,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "mqtt_client.h"
+#include "mqtt_log.h"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
@@ -34,10 +37,10 @@
 #include "user_wifi.h"
 #include "user_bme280.h"
 #include "user_config.h"
-#include "math.h"
 #include "util.h"
 
 #define OTA_TOPIC CONFIG_MQTT_TOPIC "/ota"
+#define LOG_TOPIC CONFIG_MQTT_TOPIC "/info"
 #define CONF_TOPIC CONFIG_MQTT_TOPIC "/config"
 
 static const char *TAG = "main";
@@ -111,17 +114,20 @@ static void ota_task(void *params)
         vTaskSuspend(publish_task_handle);
 
         ESP_LOGI(TAG, "Starting OTA upgrade process from: %s", ota_url);
+
         esp_http_client_config_t config = {
             .url = ota_url,
             .cert_pem = (char *)server_cert_pem_start,
             .event_handler = http_event_handler,
         };
         esp_err_t ret = esp_https_ota(&config);
+
         if (ret == ESP_OK) {
-            ESP_LOGI(TAG, "OTA upgrade successful, restarting the device");
+            ESP_LOGI(TAG, "OTA upgrade successful, restarting the device in 5s");
+            vTaskDelay(5000 / portTICK_RATE_MS);
             esp_restart();
         } else {
-            ESP_LOGE(TAG, "Firmware Upgrades Failed");
+            ESP_LOGE(TAG, "Firmware Upgrade Failed");
         }
 
         /* clear ota requests we received while performing an upgrade */
@@ -158,7 +164,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-
+            mqtt_log_set_mqtt_client(client);
             /* log app description to mqtt */
             const esp_app_desc_t *app = esp_ota_get_app_description();
             mqtt_log(CONFIG_MQTT_TOPIC "/info", "%s v%s -- %s %s", app->project_name, app->version, app->date, app->time);
@@ -257,7 +263,7 @@ static void sensors_init(void)
 void app_main()
 {
     ESP_ERROR_CHECK(nvs_flash_init());
-
+    mqtt_log_init();
     ESP_LOGI(TAG, "Initializing WIFI in Station Mode");
     wifi_init_sta();
     ESP_LOGI(TAG, "I2C and sensors setup");

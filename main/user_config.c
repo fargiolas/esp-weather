@@ -24,6 +24,7 @@
 #include "esp_libc.h"
 #include "esp_err.h"
 #include "nvs.h"
+#include "projdefs.h"
 #include "sdkconfig.h"
 #include "user_config.h"
 #include "util.h"
