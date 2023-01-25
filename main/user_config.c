@@ -117,7 +117,8 @@ static KeyType allowed_keys[] = {
     {"wifi_ssid",       CONFIG_ESP_WIFI_SSID,       config_read_str, config_write_str},
     {"wifi_pass",       CONFIG_ESP_WIFI_PASSWORD,   config_read_str, config_write_str},
     {"mqtt_broker_url", CONFIG_BROKER_URL,          config_read_str, config_write_str},
-    {"humidity_offset", "0",                        config_read_i32, config_write_i32}
+    {"humidity_offset", "0",                        config_read_i32, config_write_i32},
+    {"mqtt_log",    "1",                        config_read_i32, config_write_i32}
 };
 
 

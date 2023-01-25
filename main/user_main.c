@@ -174,7 +174,7 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
             if (publish_task_handle == NULL) {
                 xTaskCreate(publish_sensor_data, "publish_sensor_data",
                             2048, NULL,
-                            tskIDLE_PRIORITY+1, &publish_task_handle);
+                            tskIDLE_PRIORITY+2, &publish_task_handle);
             }
 
             if (ota_task_handle == NULL) {
@@ -262,8 +262,14 @@ static void sensors_init(void)
 
 void app_main()
 {
+    uint32_t mqtt_log_enable = 0;
     ESP_ERROR_CHECK(nvs_flash_init());
-    mqtt_log_init();
+
+    config_read("mqtt_log", &mqtt_log_enable);
+    if (mqtt_log_enable != 0) {
+        mqtt_log_init();
+    }
+
     ESP_LOGI(TAG, "Initializing WIFI in Station Mode");
     wifi_init_sta();
     ESP_LOGI(TAG, "I2C and sensors setup");
